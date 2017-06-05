@@ -92,6 +92,11 @@
 			"Rev": "cd7d1bbe41066b6c1f19780f895901052150a575"
 		},
 		{
+			"ImportPath": "github.com/Sirupsen/logrus/hooks/test",
+			"Comment": "v0.10.0-16-gcd7d1bb",
+			"Rev": "cd7d1bbe41066b6c1f19780f895901052150a575"
+		},
+		{
 			"ImportPath": "github.com/SpectoLabs/goproxy",
 			"Comment": "v1.0-96-g6016d23",
 			"Rev": "b97fa8e29d6fa3c2c6f3625c0d92359b353794c4"
