@@ -3,6 +3,7 @@ package v2
 import (
 	"encoding/json"
 	"errors"
+	"net/url"
 	"time"
 
 	"strings"
@@ -62,6 +63,11 @@ func NewSimulationViewFromResponseBody(responseBody []byte) (SimulationViewV2, e
 	return simulationView, nil
 }
 
+type SimulationViewV3 struct {
+	DataViewV3 `json:"data"`
+	MetaView   `json:"meta"`
+}
+
 type SimulationViewV2 struct {
 	DataViewV2 `json:"data"`
 	MetaView   `json:"meta"`
@@ -96,6 +102,70 @@ func ValidateSimulation(json, schema map[string]interface{}) error {
 	}
 
 	return nil
+}
+
+func (this SimulationViewV2) Upgrade() SimulationViewV3 {
+	var pairs []RequestResponsePairViewV3
+	for _, pairV2 := range this.RequestResponsePairs {
+
+		var queryMatchers map[string]*RequestFieldMatchersView
+		if pairV2.Request.Query != nil {
+			var queryString string
+
+			if pairV2.Request.Query.ExactMatch != nil {
+				queryString = *pairV2.Request.Query.ExactMatch
+			} else if pairV2.Request.Query.GlobMatch != nil {
+				queryString = *pairV2.Request.Query.GlobMatch
+			}
+
+			queryParameters, err := url.ParseQuery(queryString)
+			if err != nil {
+				log.WithFields(log.Fields{
+					"query": queryString,
+				}).Warning("There was an error when upgrading v2 simulation to v3")
+			}
+
+			queryMatchers = map[string]*RequestFieldMatchersView{}
+
+			for key, values := range queryParameters {
+				if pairV2.Request.Query.ExactMatch != nil {
+					queryMatchers[key] = &RequestFieldMatchersView{
+						ExactMatch: util.StringToPointer(values[len(values)-1]),
+					}
+				} else if pairV2.Request.Query.GlobMatch != nil {
+					queryMatchers[key] = &RequestFieldMatchersView{
+						GlobMatch: util.StringToPointer(values[len(values)-1]),
+					}
+				}
+
+			}
+		}
+
+		pair := RequestResponsePairViewV3{
+			Request: RequestDetailsViewV3{
+				Scheme:      pairV2.Request.Scheme,
+				Method:      pairV2.Request.Method,
+				Destination: pairV2.Request.Destination,
+				Path:        pairV2.Request.Path,
+				Query:       queryMatchers,
+				Headers:     pairV2.Request.Headers,
+				Body:        pairV2.Request.Body,
+			},
+			Response: pairV2.Response,
+		}
+		pairs = append(pairs, pair)
+	}
+
+	return SimulationViewV3{
+		DataViewV3{
+			RequestResponsePairs: pairs,
+		},
+		MetaView{
+			SchemaVersion:   "v3",
+			HoverflyVersion: this.HoverflyVersion,
+			TimeExported:    this.TimeExported,
+		},
+	}
 }
 
 func (this SimulationViewV1) Upgrade() SimulationViewV2 {
@@ -211,6 +281,11 @@ func (this SimulationViewV1) Upgrade() SimulationViewV2 {
 	}
 }
 
+type DataViewV3 struct {
+	RequestResponsePairs []RequestResponsePairViewV3 `json:"pairs"`
+	GlobalActions        GlobalActionsView           `json:"globalActions"`
+}
+
 type DataViewV2 struct {
 	RequestResponsePairs []RequestResponsePairViewV2 `json:"pairs"`
 	GlobalActions        GlobalActionsView           `json:"globalActions"`
@@ -220,6 +295,14 @@ type DataViewV1 struct {
 	RequestResponsePairViewV1 []RequestResponsePairViewV1 `json:"pairs"`
 	GlobalActions             GlobalActionsView           `json:"globalActions"`
 }
+
+type RequestResponsePairViewV3 struct {
+	Response ResponseDetailsView  `json:"response"`
+	Request  RequestDetailsViewV3 `json:"request"`
+}
+
+//Gets Response - required for interfaces.RequestResponsePairView
+func (this RequestResponsePairViewV3) GetResponse() interfaces.Response { return this.Response }
 
 type RequestResponsePairViewV2 struct {
 	Response ResponseDetailsView  `json:"response"`
@@ -248,6 +331,17 @@ type RequestFieldMatchersView struct {
 	JsonPathMatch *string `json:"jsonPathMatch,omitempty"`
 	RegexMatch    *string `json:"regexMatch,omitempty"`
 	GlobMatch     *string `json:"globMatch,omitempty"`
+}
+
+// RequestDetailsView is used when marshalling and unmarshalling RequestDetails
+type RequestDetailsViewV3 struct {
+	Path        *RequestFieldMatchersView            `json:"path,omitempty"`
+	Method      *RequestFieldMatchersView            `json:"method,omitempty"`
+	Destination *RequestFieldMatchersView            `json:"destination,omitempty"`
+	Scheme      *RequestFieldMatchersView            `json:"scheme,omitempty"`
+	Query       map[string]*RequestFieldMatchersView `json:"query,omitempty"`
+	Body        *RequestFieldMatchersView            `json:"body,omitempty"`
+	Headers     map[string][]string                  `json:"headers,omitempty"`
 }
 
 // RequestDetailsView is used when marshalling and unmarshalling RequestDetails

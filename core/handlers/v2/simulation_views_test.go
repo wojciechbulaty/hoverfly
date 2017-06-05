@@ -3,10 +3,23 @@ package v2_test
 import (
 	"testing"
 
+	"io/ioutil"
+
+	log "github.com/Sirupsen/logrus"
+	logtest "github.com/Sirupsen/logrus/hooks/test"
 	"github.com/SpectoLabs/hoverfly/core/handlers/v2"
 	"github.com/SpectoLabs/hoverfly/core/util"
 	. "github.com/onsi/gomega"
 )
+
+var responseV2 = v2.ResponseDetailsView{
+	Status:      200,
+	Body:        "body",
+	EncodedBody: false,
+	Headers: map[string][]string{
+		"Test": []string{"headers"},
+	},
+}
 
 func Test_NewSimulationViewFromResponseBody_CanCreateSimulationFromV2Payload(t *testing.T) {
 	RegisterTestingT(t)
@@ -234,14 +247,7 @@ func Test_SimulationViewV1_Upgrade_ReturnsAV2Simulation(t *testing.T) {
 							"Test": []string{"headers"},
 						},
 					},
-					Response: v2.ResponseDetailsView{
-						Status:      200,
-						Body:        "body",
-						EncodedBody: false,
-						Headers: map[string][]string{
-							"Test": []string{"headers"},
-						},
-					},
+					Response: responseV2,
 				},
 			},
 		},
@@ -276,10 +282,7 @@ func Test_SimulationViewV1_Upgrade_ReturnsAV2Simulation(t *testing.T) {
 	}))
 	Expect(simulationViewV2.RequestResponsePairs[0].Request.Headers).To(BeEmpty())
 
-	Expect(simulationViewV2.RequestResponsePairs[0].Response.Status).To(Equal(200))
-	Expect(simulationViewV2.RequestResponsePairs[0].Response.Body).To(Equal("body"))
-	Expect(simulationViewV2.RequestResponsePairs[0].Response.EncodedBody).To(BeFalse())
-	Expect(simulationViewV2.RequestResponsePairs[0].Response.Headers).To(HaveKeyWithValue("Test", []string{"headers"}))
+	Expect(simulationViewV2.RequestResponsePairs[0].Response).To(Equal(responseV2))
 
 	Expect(simulationViewV2.SchemaVersion).To(Equal("v2"))
 	Expect(simulationViewV2.HoverflyVersion).To(Equal("test"))
@@ -302,14 +305,7 @@ func Test_SimulationViewV1_Upgrade_ReturnsGlobMatchesIfTemplate(t *testing.T) {
 						Path:        util.StringToPointer("/path"),
 						Query:       util.StringToPointer("query=query"),
 					},
-					Response: v2.ResponseDetailsView{
-						Status:      200,
-						Body:        "body",
-						EncodedBody: false,
-						Headers: map[string][]string{
-							"Test": []string{"headers"},
-						},
-					},
+					Response: responseV2,
 				},
 			},
 		},
@@ -345,6 +341,351 @@ func Test_SimulationViewV1_Upgrade_ReturnsGlobMatchesIfTemplate(t *testing.T) {
 	Expect(simulationViewV2.RequestResponsePairs[0].Request.Headers).To(BeEmpty())
 }
 
+func Test_SimulationViewV2_Upgrade_UpdatesMetadataToV3(t *testing.T) {
+	RegisterTestingT(t)
+
+	unit := v2.SimulationViewV2{}
+
+	simulationViewV3 := unit.Upgrade()
+	Expect(simulationViewV3.MetaView.SchemaVersion).To(Equal("v3"))
+}
+
+func Test_SimulationViewV2_Upgrade_UpgradesPairs(t *testing.T) {
+	RegisterTestingT(t)
+
+	unit := v2.SimulationViewV2{
+		DataViewV2: v2.DataViewV2{
+			RequestResponsePairs: []v2.RequestResponsePairViewV2{
+				v2.RequestResponsePairViewV2{
+					Request: v2.RequestDetailsViewV2{
+						Scheme: &v2.RequestFieldMatchersView{
+							ExactMatch: util.StringToPointer("http"),
+						},
+						Method: &v2.RequestFieldMatchersView{
+							GlobMatch: util.StringToPointer("*"),
+						},
+						Destination: &v2.RequestFieldMatchersView{
+							GlobMatch: util.StringToPointer("*"),
+						},
+						Path: &v2.RequestFieldMatchersView{
+							RegexMatch: util.StringToPointer("api"),
+						},
+
+						Body: &v2.RequestFieldMatchersView{
+							JsonMatch: util.StringToPointer(`{"api": true}`),
+						},
+						Headers: map[string][]string{
+							"TestHeader": {"one"},
+						},
+					},
+					Response: responseV2,
+				},
+			},
+		},
+	}
+
+	simulationViewV3 := unit.Upgrade()
+	Expect(simulationViewV3.DataViewV3.RequestResponsePairs).To(HaveLen(1))
+
+	Expect(simulationViewV3.DataViewV3.RequestResponsePairs[0].Request).To(Equal(v2.RequestDetailsViewV3{
+		Scheme: &v2.RequestFieldMatchersView{
+			ExactMatch: util.StringToPointer("http"),
+		},
+		Method: &v2.RequestFieldMatchersView{
+			GlobMatch: util.StringToPointer("*"),
+		},
+		Destination: &v2.RequestFieldMatchersView{
+			GlobMatch: util.StringToPointer("*"),
+		},
+		Path: &v2.RequestFieldMatchersView{
+			RegexMatch: util.StringToPointer("api"),
+		},
+
+		Body: &v2.RequestFieldMatchersView{
+			JsonMatch: util.StringToPointer(`{"api": true}`),
+		},
+		Headers: map[string][]string{
+			"TestHeader": {"one"},
+		},
+	}))
+	Expect(simulationViewV3.DataViewV3.RequestResponsePairs[0].Response).To(Equal(responseV2))
+}
+
+func Test_SimulationViewV2_Upgrade_UpgradesSingleQueryExactMatch(t *testing.T) {
+	RegisterTestingT(t)
+
+	unit := v2.SimulationViewV2{
+		DataViewV2: v2.DataViewV2{
+			RequestResponsePairs: []v2.RequestResponsePairViewV2{
+				v2.RequestResponsePairViewV2{
+					Request: v2.RequestDetailsViewV2{
+						Query: &v2.RequestFieldMatchersView{
+							ExactMatch: util.StringToPointer(`q=something`),
+						},
+					},
+					Response: responseV2,
+				},
+			},
+		},
+	}
+
+	simulationViewV3 := unit.Upgrade()
+	Expect(simulationViewV3.DataViewV3.RequestResponsePairs).To(HaveLen(1))
+
+	Expect(simulationViewV3.DataViewV3.RequestResponsePairs[0].Request).To(Equal(v2.RequestDetailsViewV3{
+		Query: map[string]*v2.RequestFieldMatchersView{
+			"q": &v2.RequestFieldMatchersView{
+				ExactMatch: util.StringToPointer("something"),
+			},
+		},
+	}))
+}
+
+func Test_SimulationViewV2_Upgrade_UpgradesSingleQueryGlobMatch(t *testing.T) {
+	RegisterTestingT(t)
+
+	unit := v2.SimulationViewV2{
+		DataViewV2: v2.DataViewV2{
+			RequestResponsePairs: []v2.RequestResponsePairViewV2{
+				v2.RequestResponsePairViewV2{
+					Request: v2.RequestDetailsViewV2{
+						Query: &v2.RequestFieldMatchersView{
+							GlobMatch: util.StringToPointer(`q=*`),
+						},
+					},
+					Response: responseV2,
+				},
+			},
+		},
+	}
+
+	simulationViewV3 := unit.Upgrade()
+	Expect(simulationViewV3.DataViewV3.RequestResponsePairs).To(HaveLen(1))
+
+	Expect(simulationViewV3.DataViewV3.RequestResponsePairs[0].Request).To(Equal(v2.RequestDetailsViewV3{
+		Query: map[string]*v2.RequestFieldMatchersView{
+			"q": &v2.RequestFieldMatchersView{
+				GlobMatch: util.StringToPointer("*"),
+			},
+		},
+	}))
+}
+
+func Test_SimulationViewV2_Upgrade_UpgradesMultipleQueryExactMatch(t *testing.T) {
+	RegisterTestingT(t)
+
+	unit := v2.SimulationViewV2{
+		DataViewV2: v2.DataViewV2{
+			RequestResponsePairs: []v2.RequestResponsePairViewV2{
+				v2.RequestResponsePairViewV2{
+					Request: v2.RequestDetailsViewV2{
+						Query: &v2.RequestFieldMatchersView{
+							ExactMatch: util.StringToPointer(`limit=30&order=desc`),
+						},
+					},
+					Response: responseV2,
+				},
+			},
+		},
+	}
+
+	simulationViewV3 := unit.Upgrade()
+	Expect(simulationViewV3.DataViewV3.RequestResponsePairs).To(HaveLen(1))
+
+	Expect(simulationViewV3.DataViewV3.RequestResponsePairs[0].Request).To(Equal(v2.RequestDetailsViewV3{
+		Query: map[string]*v2.RequestFieldMatchersView{
+			"limit": &v2.RequestFieldMatchersView{
+				ExactMatch: util.StringToPointer("30"),
+			},
+			"order": &v2.RequestFieldMatchersView{
+				ExactMatch: util.StringToPointer("desc"),
+			},
+		},
+	}))
+}
+
+func Test_SimulationViewV2_Upgrade_UpgradesMultipleQueryGlobMatch(t *testing.T) {
+	RegisterTestingT(t)
+
+	unit := v2.SimulationViewV2{
+		DataViewV2: v2.DataViewV2{
+			RequestResponsePairs: []v2.RequestResponsePairViewV2{
+				v2.RequestResponsePairViewV2{
+					Request: v2.RequestDetailsViewV2{
+						Query: &v2.RequestFieldMatchersView{
+							GlobMatch: util.StringToPointer(`limit=*&order=asc`),
+						},
+					},
+					Response: responseV2,
+				},
+			},
+		},
+	}
+
+	simulationViewV3 := unit.Upgrade()
+	Expect(simulationViewV3.DataViewV3.RequestResponsePairs).To(HaveLen(1))
+
+	Expect(simulationViewV3.DataViewV3.RequestResponsePairs[0].Request).To(Equal(v2.RequestDetailsViewV3{
+		Query: map[string]*v2.RequestFieldMatchersView{
+			"limit": &v2.RequestFieldMatchersView{
+				GlobMatch: util.StringToPointer("*"),
+			},
+			"order": &v2.RequestFieldMatchersView{
+				GlobMatch: util.StringToPointer("asc"),
+			},
+		},
+	}))
+}
+
+func Test_SimulationViewV2_Upgrade_UpgradesSingleQueryExactMatchOnlyKey(t *testing.T) {
+	RegisterTestingT(t)
+
+	unit := v2.SimulationViewV2{
+		DataViewV2: v2.DataViewV2{
+			RequestResponsePairs: []v2.RequestResponsePairViewV2{
+				v2.RequestResponsePairViewV2{
+					Request: v2.RequestDetailsViewV2{
+						Query: &v2.RequestFieldMatchersView{
+							ExactMatch: util.StringToPointer(`something`),
+						},
+					},
+					Response: responseV2,
+				},
+			},
+		},
+	}
+
+	simulationViewV3 := unit.Upgrade()
+
+	Expect(simulationViewV3.DataViewV3.RequestResponsePairs[0].Request).To(Equal(v2.RequestDetailsViewV3{
+		Query: map[string]*v2.RequestFieldMatchersView{
+			"something": &v2.RequestFieldMatchersView{
+				ExactMatch: util.StringToPointer(""),
+			},
+		},
+	}))
+}
+
+func Test_SimulationViewV2_Upgrade_UpgradesMultipleQueryExactMatchOnlyKey(t *testing.T) {
+	RegisterTestingT(t)
+
+	unit := v2.SimulationViewV2{
+		DataViewV2: v2.DataViewV2{
+			RequestResponsePairs: []v2.RequestResponsePairViewV2{
+				v2.RequestResponsePairViewV2{
+					Request: v2.RequestDetailsViewV2{
+						Query: &v2.RequestFieldMatchersView{
+							ExactMatch: util.StringToPointer(`something&else`),
+						},
+					},
+					Response: responseV2,
+				},
+			},
+		},
+	}
+
+	simulationViewV3 := unit.Upgrade()
+
+	Expect(simulationViewV3.DataViewV3.RequestResponsePairs[0].Request).To(Equal(v2.RequestDetailsViewV3{
+		Query: map[string]*v2.RequestFieldMatchersView{
+			"something": &v2.RequestFieldMatchersView{
+				ExactMatch: util.StringToPointer(""),
+			},
+			"else": &v2.RequestFieldMatchersView{
+				ExactMatch: util.StringToPointer(""),
+			},
+		},
+	}))
+}
+
+func Test_SimulationViewV2_Upgrade_RespectsCommaSeperatedQueryValue(t *testing.T) {
+	RegisterTestingT(t)
+
+	unit := v2.SimulationViewV2{
+		DataViewV2: v2.DataViewV2{
+			RequestResponsePairs: []v2.RequestResponsePairViewV2{
+				v2.RequestResponsePairViewV2{
+					Request: v2.RequestDetailsViewV2{
+						Query: &v2.RequestFieldMatchersView{
+							ExactMatch: util.StringToPointer(`something=one,two`),
+						},
+					},
+					Response: responseV2,
+				},
+			},
+		},
+	}
+
+	simulationViewV3 := unit.Upgrade()
+
+	Expect(simulationViewV3.DataViewV3.RequestResponsePairs[0].Request).To(Equal(v2.RequestDetailsViewV3{
+		Query: map[string]*v2.RequestFieldMatchersView{
+			"something": &v2.RequestFieldMatchersView{
+				ExactMatch: util.StringToPointer("one,two"),
+			},
+		},
+	}))
+}
+
+func Test_SimulationViewV2_Upgrade_UpgradesMultipleQueryValuesUsesTheLastOne(t *testing.T) {
+	RegisterTestingT(t)
+
+	unit := v2.SimulationViewV2{
+		DataViewV2: v2.DataViewV2{
+			RequestResponsePairs: []v2.RequestResponsePairViewV2{
+				v2.RequestResponsePairViewV2{
+					Request: v2.RequestDetailsViewV2{
+						Query: &v2.RequestFieldMatchersView{
+							ExactMatch: util.StringToPointer(`something=one&something=two`),
+						},
+					},
+					Response: responseV2,
+				},
+			},
+		},
+	}
+
+	simulationViewV3 := unit.Upgrade()
+
+	Expect(simulationViewV3.DataViewV3.RequestResponsePairs[0].Request).To(Equal(v2.RequestDetailsViewV3{
+		Query: map[string]*v2.RequestFieldMatchersView{
+			"something": &v2.RequestFieldMatchersView{
+				ExactMatch: util.StringToPointer("two"),
+			},
+		},
+	}))
+}
+
+func Test_SimulationViewV2_Upgrade_LogsWhenAnErrorOccursDuringQueryParsing(t *testing.T) {
+	RegisterTestingT(t)
+
+	log.SetOutput(ioutil.Discard)
+	logger := log.StandardLogger()
+	testHook := logtest.NewLocal(logger)
+
+	unit := v2.SimulationViewV2{
+		DataViewV2: v2.DataViewV2{
+			RequestResponsePairs: []v2.RequestResponsePairViewV2{
+				v2.RequestResponsePairViewV2{
+					Request: v2.RequestDetailsViewV2{
+						Query: &v2.RequestFieldMatchersView{
+							ExactMatch: util.StringToPointer(`% % % %`),
+						},
+					},
+					Response: responseV2,
+				},
+			},
+		},
+	}
+
+	unit.Upgrade()
+
+	Expect(testHook.Entries).To(HaveLen(1))
+
+	Expect(testHook.Entries[0].Level).To(Equal(log.WarnLevel))
+	Expect(testHook.Entries[0].Message).To(Equal("There was an error when upgrading v2 simulation to v3"))
+	Expect(testHook.Entries[0].Data["query"]).To(Equal("% % % %"))
+}
 func Test_SimulationViewV1_Upgrade_CanReturnAnIncompleteRequest(t *testing.T) {
 	RegisterTestingT(t)
 
@@ -355,14 +696,7 @@ func Test_SimulationViewV1_Upgrade_CanReturnAnIncompleteRequest(t *testing.T) {
 					Request: v2.RequestDetailsViewV1{
 						Method: util.StringToPointer("POST"),
 					},
-					Response: v2.ResponseDetailsView{
-						Status:      200,
-						Body:        "body",
-						EncodedBody: false,
-						Headers: map[string][]string{
-							"Test": []string{"headers"},
-						},
-					},
+					Response: responseV2,
 				},
 			},
 		},
