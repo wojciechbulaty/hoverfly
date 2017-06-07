@@ -21,15 +21,15 @@ var _ = Describe("When I run Hoverfly", func() {
 		hoverfly = functional_tests.NewHoverfly()
 	})
 
-	AfterEach(func() {
-		hoverfly.Stop()
-	})
-
 	Context("don't specify tls-verification", func() {
 
 		BeforeEach(func() {
 			hoverfly.Start()
 			hoverfly.SetMode("capture")
+		})
+
+		AfterEach(func() {
+			hoverfly.Stop()
 		})
 
 		It("should not error with https with bad certificate", func() {
@@ -60,6 +60,10 @@ var _ = Describe("When I run Hoverfly", func() {
 			hoverfly.Start("-tls-verification=true")
 			hoverfly.Start()
 			hoverfly.SetMode("capture")
+		})
+
+		AfterEach(func() {
+			hoverfly.Stop()
 		})
 
 		It("should not error with https with bad certificate", func() {
