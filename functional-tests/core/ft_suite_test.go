@@ -6,7 +6,6 @@ import (
 
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -27,8 +26,7 @@ var (
 
 	hoverflyCmd *exec.Cmd
 
-	adminPort         = freeport.GetPort()
-	adminPortAsString = strconv.Itoa(adminPort)
+	adminPort = freeport.GetPort()
 
 	proxyPort         = freeport.GetPort()
 	proxyPortAsString = strconv.Itoa(proxyPort)
@@ -42,15 +40,9 @@ func TestHoverfly(t *testing.T) {
 var _ = BeforeSuite(func() {
 	hoverflyAdminUrl = fmt.Sprintf("http://localhost:%v", adminPort)
 	hoverflyProxyUrl = fmt.Sprintf("http://localhost:%v", proxyPort)
-
-	os.Setenv("HTTP_PROXY", hoverflyProxyUrl)
-	os.Setenv("HTTPS_PROXY", hoverflyProxyUrl)
 })
 
 var _ = AfterSuite(func() {
-	os.Setenv("HTTP_PROXY", "")
-	os.Setenv("HTTPS_PROXY", "")
-
 	stopHoverfly()
 })
 
@@ -60,14 +52,6 @@ func startHoverfly(adminPort, proxyPort int) *exec.Cmd {
 
 func startHoverflyWebServer(adminPort, proxyPort int) *exec.Cmd {
 	return startHoverflyInternal("-ap", strconv.Itoa(adminPort), "-pp", strconv.Itoa(proxyPort), "-webserver")
-}
-
-func startHoverflyWithDatabase(adminPort, proxyPort int) *exec.Cmd {
-	return startHoverflyInternal("-db", "boltdb", "-ap", strconv.Itoa(adminPort), "-pp", strconv.Itoa(proxyPort))
-}
-
-func startHoverflyWebServerWithDatabase(adminPort, proxyPort int) *exec.Cmd {
-	return startHoverflyInternal("-db", "boltdb", "-ap", strconv.Itoa(adminPort), "-pp", strconv.Itoa(proxyPort), "-webserver")
 }
 
 func startHoverflyWithMiddleware(adminPort, proxyPort int, middlewarePath string) *exec.Cmd {
@@ -112,12 +96,6 @@ func SetHoverflyMode(mode string) {
 	Expect(res.StatusCode).To(Equal(200))
 }
 
-func SetHoverflyDestination(destination string) {
-	req := sling.New().Put(hoverflyAdminUrl + "/api/v2/hoverfly/destination").Body(strings.NewReader(`{"destination":"` + destination + `"}`))
-	res := functional_tests.DoRequest(req)
-	Expect(res.StatusCode).To(Equal(200))
-}
-
 func EraseHoverflySimulation() {
 	req := sling.New().Delete(hoverflyAdminUrl + "/api/v2/simulation")
 	res := functional_tests.DoRequest(req)
@@ -138,14 +116,4 @@ func ImportHoverflySimulation(payload io.Reader) *http.Response {
 
 func CallFakeServerThroughProxy(server *httptest.Server) *http.Response {
 	return DoRequestThroughProxy(sling.New().Get(server.URL))
-}
-
-func SetHoverflyResponseDelays(path string) {
-	delaysConf, err := ioutil.ReadFile(path)
-	if err != nil {
-		Fail("can't read delay config file")
-	}
-	req := sling.New().Put(hoverflyAdminUrl + "/api/delays").Body(strings.NewReader(string(delaysConf)))
-	res := functional_tests.DoRequest(req)
-	Expect(res.StatusCode).To(Equal(201))
 }
