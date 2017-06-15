@@ -17,7 +17,7 @@ import (
 )
 
 type HoverflyLogs interface {
-	GetLogs(limit int, from *time.Time) []*logrus.Entry
+	GetLogs(limit int, from *time.Time, level *logrus.Level) []*logrus.Entry
 }
 
 type LogsHandler struct {
@@ -56,7 +56,7 @@ func (this *LogsHandler) Get(w http.ResponseWriter, req *http.Request, next http
 		fromTime = &fromTimeValue
 	}
 
-	logs = this.Hoverfly.GetLogs(limitQuery, fromTime)
+	logs = this.Hoverfly.GetLogs(limitQuery, fromTime, nil)
 
 	if strings.Contains(req.Header.Get("Accept"), "text/plain") ||
 		strings.Contains(req.Header.Get("Content-Type"), "text/plain") {
@@ -118,7 +118,7 @@ func (this *LogsHandler) GetWS(w http.ResponseWriter, r *http.Request) {
 	var previousLogs LogsView
 
 	handlers.NewWebsocket(func() ([]byte, error) {
-		currentLogs := logsToLogsView(this.Hoverfly.GetLogs(500, nil))
+		currentLogs := logsToLogsView(this.Hoverfly.GetLogs(500, nil, nil))
 
 		if !reflect.DeepEqual(currentLogs, previousLogs) {
 			previousLogs = currentLogs

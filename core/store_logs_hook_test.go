@@ -60,7 +60,7 @@ func Test_StoreLogsHook_GetLogs_LimitsLogs(t *testing.T) {
 		})
 	}
 
-	logs := unit.GetLogs(2, nil)
+	logs := unit.GetLogs(2, nil, nil)
 	Expect(logs).To(HaveLen(2))
 	Expect(logs[0].Message).To(Equal("log-1"))
 	Expect(logs[1].Message).To(Equal("log-2"))
@@ -75,7 +75,7 @@ func Test_StoreLogsHook_GetLogs_AcceptsALimitThatIsTooLarge(t *testing.T) {
 		Message: "log-0",
 	})
 
-	logs := unit.GetLogs(1000, nil)
+	logs := unit.GetLogs(1000, nil, nil)
 	Expect(logs).To(HaveLen(1))
 	Expect(logs[0].Message).To(Equal("log-0"))
 }
@@ -94,7 +94,7 @@ func Test_StoreLogsHook_GetLogs_FilteredByFromDateTime(t *testing.T) {
 
 	queryDate := time.Date(2017, 6, 14, 10, 0, 1, 0, time.Local)
 
-	logs := unit.GetLogs(100, &queryDate)
+	logs := unit.GetLogs(100, &queryDate, nil)
 	Expect(logs).To(HaveLen(1))
 	expectPrecision, _ := time.ParseDuration("1s")
 	Expect(logs[0].Time).To(BeTemporally("==",time.Date(2017, 6, 14, 10, 0, 2, 0, time.Local), expectPrecision))
@@ -114,7 +114,7 @@ func Test_StoreLogsHook_GetLogs_FilteredByFromDateTimeAndLimit(t *testing.T) {
 
 	queryDate := time.Date(2017, 6, 14, 10, 0, 0, 0, time.Local)
 
-	logs := unit.GetLogs(2, &queryDate)
+	logs := unit.GetLogs(2, &queryDate, nil)
 	Expect(logs).To(HaveLen(2))
 	expectPrecision, _ := time.ParseDuration("1s")
 
@@ -124,4 +124,30 @@ func Test_StoreLogsHook_GetLogs_FilteredByFromDateTimeAndLimit(t *testing.T) {
 	Expect(logs[1].Message).To(Equal("log-3"))
 	Expect(logs[1].Time).To(BeTemporally("==",time.Date(2017, 6, 14, 10, 0, 3, 0, time.Local), expectPrecision))
 
+}
+
+func Test_StoreLogsHook_GetLogs_FilteredByLogLevel(t *testing.T) {
+	RegisterTestingT(t)
+
+	unit := NewStoreLogsHook()
+
+	unit.Fire(&logrus.Entry{
+		Message: "info",
+		Level: logrus.InfoLevel,
+	})
+
+	unit.Fire(&logrus.Entry{
+		Message: "warn",
+		Level: logrus.WarnLevel,
+	})
+
+	unit.Fire(&logrus.Entry{
+		Message: "error",
+		Level: logrus.ErrorLevel,
+	})
+
+	logs := unit.GetLogs(100, nil, logrus.WarnLevel)
+	Expect(logs).To(HaveLen(2))
+	Expect(logs[0].Level).To(Equal(logrus.WarnLevel))
+	Expect(logs[1].Level).To(Equal(logrus.ErrorLevel))
 }

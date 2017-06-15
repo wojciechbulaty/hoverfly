@@ -37,7 +37,7 @@ func (hook StoreLogsHook) GetLogsCount() int {
 	return len(hook.Entries)
 }
 
-func (hook StoreLogsHook) GetLogs(limit int, from *time.Time) []*logrus.Entry {
+func (hook StoreLogsHook) GetLogs(limit int, from *time.Time, level logrus.Level) []*logrus.Entry {
 	entriesLength := len(hook.Entries)
 	if limit > entriesLength {
 		limit = entriesLength
