@@ -2,6 +2,8 @@ package templating
 
 import (
 	"github.com/aymerick/raymond"
+	"net/http"
+	"strings"
 )
 
 type TemplatingData struct {
@@ -14,30 +16,30 @@ type Request struct {
 	Scheme     string
 }
 
-func ApplyTemplate() (string, error) {
-	return raymond.Render(`
-	Scheme: {{ Request.Scheme }}
+func ApplyTemplate(request *http.Request, responseBody string) (*string, error) {
 
-	Query param value: {{ Request.QueryParam.Singular }}
+	t := NewTemplatingDataFromRequest(request)
 
-	Query param value by index: {{ Request.QueryParam.Multiple.[0] }}
-	Query param value by index: {{ Request.QueryParam.Multiple.[1] }}
+	if rendered, err := raymond.Render(responseBody, t); err == nil {
+		responseBody = rendered
+		return &responseBody, nil
+	} else {
+		return nil, err
+	}
+}
 
-	List of query param values: {{ Request.QueryParam.Multiple}}
-	Looping through query params: {{#each Request.QueryParam.Multiple}}{{ this }} {{/each}}
+func NewTemplatingDataFromRequest(request *http.Request) * TemplatingData {
 
-	Path param value: {{ Request.PathParam.[0] }}
-	Looping through path params: {{#each Request.QueryParam.Multiple}}{{ this }} {{/each}}
+	requestPath := request.URL.Path
 
-	`, TemplatingData{
+	pathParams := strings.Split(requestPath, "/")[1:]
 
+	return &TemplatingData{
 		Request: Request{
-			QueryParam: map[string][]string{
-				"Singular": {"one"},
-				"Multiple": {"one", "two"},
-			},
-			PathParam: []string{"foo", "bar"},
-			Scheme:    "https",
+			PathParam: pathParams,
+			QueryParam: request.URL.Query(),
+			Scheme: request.URL.Scheme,
 		},
-	})
+	}
+
 }

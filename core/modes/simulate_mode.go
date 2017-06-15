@@ -6,6 +6,7 @@ import (
 	"github.com/SpectoLabs/hoverfly/core/matching"
 	"github.com/SpectoLabs/hoverfly/core/models"
 	"github.com/SpectoLabs/hoverfly/core/handlers/v2"
+	"github.com/SpectoLabs/hoverfly/core/templating"
 )
 
 type HoverflySimulate interface {
@@ -41,13 +42,21 @@ func (this SimulateMode) Process(request *http.Request, details models.RequestDe
 	}
 
 	response, matchingErr := this.Hoverfly.GetResponse(details)
+
 	if matchingErr != nil {
 		return ReturnErrorAndLog(request, matchingErr, &pair, "There was an error when matching", Simulate)
 	}
 
+	response, err := templating.ApplyTemplate(request, *response) // By reference we will be mutating it
+
+	if err != nil {
+		return ReturnErrorAndLog(request, err, &pair, "There was an error when templating", Simulate)
+	}
+
 	pair.Response = *response
 
-	pair, err := this.Hoverfly.ApplyMiddleware(pair)
+	pair, err = this.Hoverfly.ApplyMiddleware(pair)
+
 	if err != nil {
 		return ReturnErrorAndLog(request, err, &pair, "There was an error when executing middleware", Simulate)
 	}
