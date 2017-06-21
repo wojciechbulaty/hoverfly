@@ -133,9 +133,10 @@ func (r *RequestDetails) HashWithoutHost() string {
 // to be bytes, however headers should provide all required information for later decoding
 // by the client.
 type ResponseDetails struct {
-	Status  int
-	Body    string
-	Headers map[string][]string
+	Status    int
+	Body      string
+	Headers   map[string][]string
+	Templated bool
 }
 
 func NewResponseDetailsFromResponse(data interfaces.Response) ResponseDetails {
@@ -146,7 +147,7 @@ func NewResponseDetailsFromResponse(data interfaces.Response) ResponseDetails {
 		body = string(decoded)
 	}
 
-	return ResponseDetails{Status: data.GetStatus(), Body: body, Headers: data.GetHeaders()}
+	return ResponseDetails{Status: data.GetStatus(), Body: body, Headers: data.GetHeaders(), Templated: data.GetTemplated()}
 }
 
 // This function will create a JSON appriopriate version of ResponseDetails for the v2 API

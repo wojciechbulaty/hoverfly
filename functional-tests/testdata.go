@@ -737,3 +737,86 @@ var SingleRequestMatcherToResponse = `{
 		"timeExported": "2017-02-23T12:43:48Z"
 	}
 }`
+
+var TemplatingEnabled = `{
+    "data": {
+        "pairs": [
+            {
+                "response": {
+                    "status": 200,
+                    "body": "{{ Request.QueryParam.singular }}",
+                    "encodedBody": false,
+                    "templated" : true,
+                },
+                "request": {
+                    "method": {
+			"exactMatch": "GET"
+                    }
+                }
+            }
+        ],
+        "globalActions": {
+            "delays": []
+        }
+    },
+    "meta": {
+        "schemaVersion": "v2",
+        "hoverflyVersion": "v0.10.2",
+        "timeExported": "2017-02-23T12:43:48Z"
+    }
+}`
+
+var TemplatingDisabled = `{
+    "data": {
+        "pairs": [
+            {
+                "response": {
+                    "status": 200,
+                    "body": "{{ Request.QueryParam.singular }}",
+                    "encodedBody": false,
+                    "templated" : false,
+                },
+                "request": {
+                    "method": {
+			"exactMatch": "GET"
+                    }
+                }
+            }
+        ],
+        "globalActions": {
+            "delays": []
+        }
+    },
+    "meta": {
+        "schemaVersion": "v2",
+        "hoverflyVersion": "v0.10.2",
+        "timeExported": "2017-02-23T12:43:48Z"
+    }
+}`
+
+var TemplatingDisabledByDefault = `{
+    "data": {
+        "pairs": [
+            {
+                "response": {
+                    "status": 200,
+                    "body": "{{ Request.QueryParam.one }}",
+                    "encodedBody": false
+                },
+                "request": {
+                    "method": {
+			"exactMatch": "GET"
+                    }
+                }
+            }
+        ],
+        "globalActions": {
+            "delays": []
+        }
+    },
+    "meta": {
+        "schemaVersion": "v2",
+        "hoverflyVersion": "v0.10.2",
+        "timeExported": "2017-02-23T12:43:48Z"
+    }
+}`

@@ -227,4 +227,40 @@ Which if hit would have given the following response:
 }`
 		Expect(string(body)).To(Equal(expected))
 	})
+
+	It("should template response if templating is enabled", func() {
+		hoverfly.ImportSimulation(functional_tests.TemplatingEnabled)
+
+		resp := hoverfly.Proxy(sling.New().Get("http://test-server.com?one=foo"))
+		Expect(resp.StatusCode).To(Equal(200))
+
+		body, err := ioutil.ReadAll(resp.Body)
+		Expect(err).To(BeNil())
+
+		Expect(string(body)).To(Equal("foo"))
+	})
+
+	It("should not template response if templating is disabled explicitely", func() {
+		hoverfly.ImportSimulation(functional_tests.TemplatingDisabled)
+
+		resp := hoverfly.Proxy(sling.New().Get("{{ Request.QueryParam.one }}"))
+		Expect(resp.StatusCode).To(Equal(200))
+
+		body, err := ioutil.ReadAll(resp.Body)
+		Expect(err).To(BeNil())
+
+		Expect(string(body)).To(Equal("foo"))
+	})
+
+	It("should not template response if templating is not explcitely enabled or disabled", func() {
+		hoverfly.ImportSimulation(functional_tests.TemplatingDisabled)
+
+		resp := hoverfly.Proxy(sling.New().Get("{{ Request.QueryParam.one }}"))
+		Expect(resp.StatusCode).To(Equal(200))
+
+		body, err := ioutil.ReadAll(resp.Body)
+		Expect(err).To(BeNil())
+
+		Expect(string(body)).To(Equal("foo"))
+	})
 })

@@ -84,7 +84,7 @@ Looping through path params: {{#each Request.PathParam}}{{ this }}-{{/each}}`)
 
 	Expect(err).To(BeNil())
 
-	Expect(*template).To(Equal(`
+	Expect(template).To(Equal(`
 Scheme: http
 
 Query param value: 1
@@ -123,7 +123,7 @@ Looping through path params:{{#each Request.PathParam}}{{ this }}{{/each}}`)
 
 	Expect(err).To(BeNil())
 
-	Expect(*template).To(Equal(`
+	Expect(template).To(Equal(`
 Scheme:http
 
 Query param value:

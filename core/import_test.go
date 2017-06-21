@@ -199,7 +199,9 @@ func TestImportRequestResponsePairs_CanImportASinglePair(t *testing.T) {
 			Status:      200,
 			Body:        "hello_world",
 			EncodedBody: false,
-			Headers:     map[string][]string{"Content-Type": []string{"text/plain"}}},
+			Headers:     map[string][]string{"Content-Type": []string{"text/plain"}},
+			Templated: true,
+		},
 		RequestMatcher: v2.RequestMatcherViewV2{
 			Path: &v2.RequestFieldMatchersView{
 				ExactMatch: StringToPointer("/"),
@@ -228,6 +230,7 @@ func TestImportRequestResponsePairs_CanImportASinglePair(t *testing.T) {
 			Status:  200,
 			Body:    "hello_world",
 			Headers: map[string][]string{"Content-Type": []string{"text/plain"}},
+			Templated: true,
 		},
 		RequestMatcher: models.RequestMatcher{
 			Path: &models.RequestFieldMatchers{
@@ -271,6 +274,7 @@ func TestImportImportRequestResponsePairs_CanImportAMultiplePairs(t *testing.T) 
 			Body:        "hello_world",
 			EncodedBody: false,
 			Headers:     map[string][]string{"Hoverfly": []string{"testing"}},
+			Templated: true,
 		},
 		RequestMatcher: v2.RequestMatcherViewV2{
 			Path: &v2.RequestFieldMatchersView{
@@ -311,6 +315,7 @@ func TestImportImportRequestResponsePairs_CanImportAMultiplePairs(t *testing.T) 
 			Status:  200,
 			Body:    "hello_world",
 			Headers: map[string][]string{"Hoverfly": []string{"testing"}},
+			Templated: true,
 		},
 		RequestMatcher: models.RequestMatcher{
 			Path: &models.RequestFieldMatchers{

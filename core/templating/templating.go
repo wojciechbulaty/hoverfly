@@ -16,15 +16,15 @@ type Request struct {
 	Scheme     string
 }
 
-func ApplyTemplate(request *http.Request, responseBody string) (*string, error) {
+func ApplyTemplate(request *http.Request, responseBody string) (string, error) {
 
 	t := NewTemplatingDataFromRequest(request)
 
 	if rendered, err := raymond.Render(responseBody, t); err == nil {
 		responseBody = rendered
-		return &responseBody, nil
+		return responseBody, nil
 	} else {
-		return nil, err
+		return "", err
 	}
 }
 

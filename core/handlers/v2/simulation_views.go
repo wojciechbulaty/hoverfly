@@ -314,6 +314,7 @@ type ResponseDetailsView struct {
 	Body        string              `json:"body"`
 	EncodedBody bool                `json:"encodedBody"`
 	Headers     map[string][]string `json:"headers"`
+	Templated   bool				`json:"templated"`
 }
 
 //Gets Status - required for interfaces.Response
@@ -324,6 +325,8 @@ func (this ResponseDetailsView) GetBody() string { return this.Body }
 
 // Gets EncodedBody - required for interfaces.Response
 func (this ResponseDetailsView) GetEncodedBody() bool { return this.EncodedBody }
+
+func (this ResponseDetailsView) GetTemplated() bool { return this.Templated }
 
 // Gets Headers - required for interfaces.Response
 func (this ResponseDetailsView) GetHeaders() map[string][]string { return this.Headers }
